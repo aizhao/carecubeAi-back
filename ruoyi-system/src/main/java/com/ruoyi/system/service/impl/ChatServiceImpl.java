@@ -1,5 +1,6 @@
 package com.ruoyi.system.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.config.RagFlowConfig;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.system.service.IChatService;
@@ -37,6 +38,7 @@ public class ChatServiceImpl implements IChatService
 
     private static final MappingJackson2HttpMessageConverter jsonConverter =
             new MappingJackson2HttpMessageConverter();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private String apiUrl() {
         return ragFlowConfig.getUrl() + "/api/v1";
@@ -170,7 +172,35 @@ public class ChatServiceImpl implements IChatService
     @Override
     public byte[] downloadDocument(String datasetId, String documentId)
     {
-        String url = ragFlowConfig.getUrl() + "/api/v1/datasets/" + datasetId + "/documents/" + documentId;
+        byte[] content = downloadDocumentFromDataset(datasetId, documentId);
+        Map<String, Object> errorBody = parseRagFlowError(content);
+        if (errorBody == null)
+        {
+            return content;
+        }
+
+        String resolvedDatasetId = resolveDatasetIdByDocument(documentId);
+        if (resolvedDatasetId != null && !resolvedDatasetId.equals(datasetId))
+        {
+            content = downloadDocumentFromDataset(resolvedDatasetId, documentId);
+            errorBody = parseRagFlowError(content);
+            if (errorBody == null)
+            {
+                return content;
+            }
+        }
+
+        Object message = errorBody.get("message");
+        throw new ServiceException("下载文档失败: " + (message != null ? message.toString() : "RAGFlow 返回错误"));
+    }
+
+    private byte[] downloadDocumentFromDataset(String datasetId, String documentId)
+    {
+        if (datasetId == null || datasetId.isBlank())
+        {
+            throw new ServiceException("下载文档失败: datasetId 为空");
+        }
+        String url = apiUrl() + "/datasets/" + datasetId + "/documents/" + documentId;
         try
         {
             HttpHeaders headers = new HttpHeaders();
@@ -184,6 +214,93 @@ public class ChatServiceImpl implements IChatService
         {
             log.error("下载文档失败: {}", url, e);
             throw new ServiceException("下载文档失败: " + e.getMessage());
+        }
+    }
+
+    private Map<String, Object> parseRagFlowError(byte[] content)
+    {
+        if (content == null || content.length == 0)
+        {
+            return null;
+        }
+        int first = 0;
+        while (first < content.length && Character.isWhitespace((char) content[first]))
+        {
+            first++;
+        }
+        if (first >= content.length || content[first] != '{')
+        {
+            return null;
+        }
+        try
+        {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = objectMapper.readValue(content, Map.class);
+            Object code = body.get("code");
+            if (code instanceof Number && ((Number) code).intValue() != 0)
+            {
+                return body;
+            }
+            return null;
+        }
+        catch (Exception ignored)
+        {
+            return null;
+        }
+    }
+
+    private String resolveDatasetIdByDocument(String documentId)
+    {
+        Map<String, Object> datasetsResponse = executeGet(apiUrl() + "/datasets?page=1&page_size=200");
+        Object data = datasetsResponse.get("data");
+        if (!(data instanceof List))
+        {
+            return null;
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> datasets = (List<Map<String, Object>>) data;
+        for (Map<String, Object> dataset : datasets)
+        {
+            Object id = dataset.get("id");
+            if (id == null)
+            {
+                continue;
+            }
+            String datasetId = id.toString();
+            try
+            {
+                String url = apiUrl() + "/datasets/" + datasetId + "/documents?page=1&page_size=1&id=" + encode(documentId);
+                Map<String, Object> docsResponse = executeGet(url);
+                Object docsData = docsResponse.get("data");
+                if (docsData instanceof Map)
+                {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> docsMap = (Map<String, Object>) docsData;
+                    Object docs = docsMap.get("docs");
+                    if (docs instanceof List && !((List<?>) docs).isEmpty())
+                    {
+                        return datasetId;
+                    }
+                }
+            }
+            catch (ServiceException e)
+            {
+                log.debug("按数据集 {} 查询文档 {} 失败: {}", datasetId, documentId, e.getMessage());
+            }
+        }
+        return null;
+    }
+
+    private String encode(String value)
+    {
+        try
+        {
+            return URLEncoder.encode(value, "UTF-8");
+        }
+        catch (UnsupportedEncodingException e)
+        {
+            return value;
         }
     }
 
