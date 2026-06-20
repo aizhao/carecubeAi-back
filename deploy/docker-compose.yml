@@ -1,0 +1,91 @@
+# ============================================
+# 睿立方感控AI助手 — Docker Compose 部署
+#
+# 使用方法：
+#   1. 修改 application.yml 中的 ragflow 配置
+#   2. 修改 application-druid.yml 中的数据库密码
+#   3. 构建并启动：docker compose up -d --build
+#   4. 查看日志：  docker compose logs -f
+#   5. 停止：      docker compose down
+#
+# 首次启动后访问 http://你的服务器IP:8088
+# 默认账号：admin / admin123
+# ============================================
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: carecubeai-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: ry-vue
+    ports:
+      - "33061:3306"
+    volumes:
+      - /work/carecubeai/data/mysql:/var/lib/mysql
+      - ../sql:/sql:ro
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root123}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    networks:
+      - app-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: carecubeai-redis
+    restart: unless-stopped
+    volumes:
+      - /work/carecubeai/data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-net
+
+  backend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: carecubeai-backend:latest
+    container_name: carecubeai-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8089:8081"
+    volumes:
+      - ./application.yml:/app/config/application.yml:ro
+      - ./application-druid.yml:/app/config/application-druid.yml:ro
+      - /work/carecubeai/data/upload:/work/carecubeai/uploadPath
+    environment:
+      TZ: Asia/Shanghai
+    networks:
+      - app-net
+
+  frontend:
+    build:
+      context: ../../carecubeai-web
+      dockerfile: Dockerfile
+    image: carecubeai-frontend:latest
+    container_name: carecubeai-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8088:80"
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge

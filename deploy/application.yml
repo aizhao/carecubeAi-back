@@ -1,0 +1,68 @@
+# ============================================
+# Docker 环境 — 后端配置
+# 挂载到 /app/config/application.yml 覆盖 jar 内默认值
+# ============================================
+
+# 项目相关配置
+ruoyi:
+  name: CareCubeAi
+  version: 3.9.2
+  copyrightYear: 2026
+  profile: /work/carecubeai/uploadPath
+  addressEnabled: false
+  captchaType: math
+
+server:
+  port: 8081
+  servlet:
+    context-path: /
+  tomcat:
+    uri-encoding: UTF-8
+    accept-count: 1000
+    threads:
+      max: 800
+      min-spare: 100
+
+spring:
+  profiles:
+    active: druid
+  devtools:
+    restart:
+      enabled: false
+  data:
+    redis:
+      host: redis
+      port: 6379
+      database: 0
+      password:
+      timeout: 10s
+      lettuce:
+        pool:
+          min-idle: 0
+          max-idle: 8
+          max-active: 8
+          max-wait: -1ms
+
+# MyBatis
+mybatis:
+  mapperLocations: classpath*:mapper/**/*Mapper.xml
+  typeAliasesPackage: com.ruoyi.**.domain
+
+pagehelper:
+  helperDialect: mysql
+  reasonable: true
+  supportMethodsArguments: true
+  params: count=countSql
+
+# JWT
+token:
+  header: Authorization
+  secret: abcdefghijklmnopqrstuvwxyz
+  expireTime: 30
+
+# RAGFlow 知识库配置
+ragflow:
+  # RAGFlow 服务地址（改成实际的地址）
+  url: http://10.10.18.9:60000
+  # RAGFlow API Key（改成实际的 key）
+  api-key: ragflow-zNLVSXYAlD2Tj972agKdV-88LXamVIVYN8T-lKyS3Wo
