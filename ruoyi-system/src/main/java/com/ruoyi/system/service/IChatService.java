@@ -65,4 +65,9 @@ public interface IChatService
      * 下载知识库文档
      */
     public byte[] downloadDocument(String datasetId, String documentId);
+
+    /**
+     * 预览知识库文档
+     */
+    public Map<String, Object> previewDocument(String documentId);
 }

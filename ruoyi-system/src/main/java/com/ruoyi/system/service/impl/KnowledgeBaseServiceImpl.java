@@ -1,5 +1,6 @@
 package com.ruoyi.system.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ruoyi.common.config.RagFlowConfig;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.system.service.IKnowledgeBaseService;
@@ -29,6 +30,7 @@ import java.util.*;
 public class KnowledgeBaseServiceImpl implements IKnowledgeBaseService
 {
     private static final Logger log = LoggerFactory.getLogger(KnowledgeBaseServiceImpl.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     private RestTemplate restTemplate;
@@ -232,7 +234,12 @@ public class KnowledgeBaseServiceImpl implements IKnowledgeBaseService
     @Override
     public byte[] downloadDocument(String datasetId, String documentId)
     {
-        String url = ragFlowConfig.getUrl() + "/api/v1/datasets/" + datasetId + "/documents/" + documentId;
+        return downloadDocumentFromDataset(documentId);
+    }
+
+    private byte[] downloadDocumentFromDataset(String documentId)
+    {
+        String url = ragFlowConfig.getUrl() + "/v1/document/get/" + documentId;
         try
         {
             HttpHeaders headers = new HttpHeaders();
@@ -241,13 +248,122 @@ public class KnowledgeBaseServiceImpl implements IKnowledgeBaseService
 
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     url, HttpMethod.GET, entity, byte[].class);
-            return response.getBody();
+
+            byte[] body = response.getBody();
+            if (body != null && body.length > 0)
+            {
+                MediaType contentType = response.getHeaders().getContentType();
+                if (contentType != null && contentType.includes(MediaType.APPLICATION_JSON))
+                {
+                    Map<String, Object> errorBody = parseRagFlowError(body);
+                    if (errorBody != null)
+                    {
+                        Object code = errorBody.get("code");
+                        Object message = errorBody.get("message");
+                        log.warn("RAGFlow 下载文档返回 JSON 错误: code={}, message={}", code, message);
+                        throw new ServiceException("下载文件失败: " + (message != null ? message.toString() : "RAGFlow 返回错误"));
+                    }
+                }
+            }
+            return body;
+        }
+        catch (ServiceException e)
+        {
+            throw e;
         }
         catch (RestClientException e)
         {
             log.error("下载RAGFlow文件失败", e);
             throw new ServiceException("下载文件失败: " + e.getMessage());
         }
+    }
+
+    private Map<String, Object> parseRagFlowError(byte[] content)
+    {
+        if (content == null || content.length == 0)
+        {
+            return null;
+        }
+        int first = 0;
+        if (content.length >= 3
+                && (content[0] & 0xFF) == 0xEF
+                && (content[1] & 0xFF) == 0xBB
+                && (content[2] & 0xFF) == 0xBF)
+        {
+            first = 3;
+        }
+        while (first < content.length && Character.isWhitespace((char) content[first]))
+        {
+            first++;
+        }
+        if (first >= content.length || content[first] != '{')
+        {
+            return null;
+        }
+        try
+        {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = objectMapper.readValue(content, first, content.length - first, Map.class);
+            Object code = body.get("code");
+            if (code instanceof Number && ((Number) code).intValue() != 0)
+            {
+                return body;
+            }
+            if (code instanceof String && !"0".equals(code))
+            {
+                return body;
+            }
+            return null;
+        }
+        catch (Exception e)
+        {
+            log.warn("解析 RAGFlow 错误响应失败，按正常文件处理: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private String resolveDatasetIdByDocument(String documentId)
+    {
+        Map<String, Object> datasetsResponse = executeGet(ragFlowConfig.getUrl() + "/api/v1/datasets?page=1&page_size=200");
+        Object data = datasetsResponse.get("data");
+        if (!(data instanceof List))
+        {
+            return null;
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> datasets = (List<Map<String, Object>>) data;
+        for (Map<String, Object> dataset : datasets)
+        {
+            Object id = dataset.get("id");
+            if (id == null)
+            {
+                continue;
+            }
+            String candidateDatasetId = id.toString();
+            try
+            {
+                String url = ragFlowConfig.getUrl() + "/api/v1/datasets/" + candidateDatasetId
+                        + "/documents?page=1&page_size=1&id=" + encode(documentId);
+                Map<String, Object> docsResponse = executeGet(url);
+                Object docsData = docsResponse.get("data");
+                if (docsData instanceof Map)
+                {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> docsMap = (Map<String, Object>) docsData;
+                    Object docs = docsMap.get("docs");
+                    if (docs instanceof List && !((List<?>) docs).isEmpty())
+                    {
+                        return candidateDatasetId;
+                    }
+                }
+            }
+            catch (ServiceException e)
+            {
+                log.debug("按数据集 {} 查询文档 {} 失败: {}", candidateDatasetId, documentId, e.getMessage());
+            }
+        }
+        return null;
     }
 
     // ========== 文档高级操作 ==========

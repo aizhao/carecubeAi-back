@@ -177,6 +177,25 @@ public class RagFlowChatController extends BaseController
         response.getOutputStream().flush();
     }
 
+    @PreAuthorize("@ss.hasPermi('mag:chat:query')")
+    @GetMapping("/document/preview/{documentId}")
+    public void previewDocument(
+            @PathVariable String documentId,
+            HttpServletResponse response) throws IOException
+    {
+        Map<String, Object> result = chatService.previewDocument(documentId);
+        byte[] content = (byte[]) result.get("bytes");
+        String contentType = (String) result.get("contentType");
+        response.setContentType(contentType != null ? contentType : "application/octet-stream");
+        response.setHeader("Content-Disposition", "inline");
+        response.setContentLength(content != null ? content.length : 0);
+        if (content != null)
+        {
+            response.getOutputStream().write(content);
+        }
+        response.getOutputStream().flush();
+    }
+
     // ========== SSE Streaming Chat ==========
 
     @PreAuthorize("@ss.hasPermi('mag:chat:query')")

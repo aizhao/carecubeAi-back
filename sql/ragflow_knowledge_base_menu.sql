@@ -63,7 +63,7 @@ insert into sys_role_menu values ('1', '2013');
 -- ==============================
 
 -- 一级菜单：AI 助手（直接进入聊天页，助手 ID 由前端环境变量 VITE_APP_CHAT_ASSISTANT_ID 配置）
-insert into sys_menu values('2014', 'AI助手', '0', '6', 'ai-chat', 'mag/chat/chat', '', 'ChatConversation', 1, 0, 'C', '0', '0', 'mag:chat:query', 'chat', 'admin', sysdate(), '', null, 'AI助手聊天页面');
+insert into sys_menu values('2014', 'AI助手', '0', '6', 'ai-chat', 'mag/chat/chat', '', 'ChatConversation', 1, 1, 'C', '0', '0', 'mag:chat:query', 'chat', 'admin', sysdate(), '', null, 'AI助手聊天页面');
 
 -- 角色权限
 insert into sys_role_menu values ('1', '2014');

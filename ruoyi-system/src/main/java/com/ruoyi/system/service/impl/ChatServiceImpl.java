@@ -172,35 +172,14 @@ public class ChatServiceImpl implements IChatService
     @Override
     public byte[] downloadDocument(String datasetId, String documentId)
     {
-        byte[] content = downloadDocumentFromDataset(datasetId, documentId);
-        Map<String, Object> errorBody = parseRagFlowError(content);
-        if (errorBody == null)
-        {
-            return content;
-        }
-
-        String resolvedDatasetId = resolveDatasetIdByDocument(documentId);
-        if (resolvedDatasetId != null && !resolvedDatasetId.equals(datasetId))
-        {
-            content = downloadDocumentFromDataset(resolvedDatasetId, documentId);
-            errorBody = parseRagFlowError(content);
-            if (errorBody == null)
-            {
-                return content;
-            }
-        }
-
-        Object message = errorBody.get("message");
-        throw new ServiceException("下载文档失败: " + (message != null ? message.toString() : "RAGFlow 返回错误"));
+        return downloadDocumentFromDataset(documentId);
     }
 
-    private byte[] downloadDocumentFromDataset(String datasetId, String documentId)
+    @Override
+    public Map<String, Object> previewDocument(String documentId)
     {
-        if (datasetId == null || datasetId.isBlank())
-        {
-            throw new ServiceException("下载文档失败: datasetId 为空");
-        }
-        String url = apiUrl() + "/datasets/" + datasetId + "/documents/" + documentId;
+        String url = ragFlowConfig.getUrl() + "/v1/document/get/" + documentId;
+        log.info("预览文档: url={}", url);
         try
         {
             HttpHeaders headers = new HttpHeaders();
@@ -208,7 +187,79 @@ public class ChatServiceImpl implements IChatService
             HttpEntity<Void> entity = new HttpEntity<>(headers);
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     url, HttpMethod.GET, entity, byte[].class);
-            return response.getBody();
+
+            byte[] body = response.getBody();
+            MediaType contentType = response.getHeaders().getContentType();
+            log.info("预览响应: HTTP {}, Content-Type={}, bodyLength={}",
+                    response.getStatusCode().value(), contentType,
+                    body != null ? body.length : 0);
+
+            if (body != null && body.length > 0 && contentType != null
+                    && contentType.includes(MediaType.APPLICATION_JSON))
+            {
+                Map<String, Object> errorBody = parseRagFlowError(body);
+                if (errorBody != null)
+                {
+                    Object message = errorBody.get("message");
+                    throw new ServiceException("预览文档失败: " + (message != null ? message.toString() : "RAGFlow 返回错误"));
+                }
+            }
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("bytes", body != null ? body : new byte[0]);
+            result.put("contentType", contentType != null ? contentType.toString() : "application/octet-stream");
+            return result;
+        }
+        catch (ServiceException e)
+        {
+            throw e;
+        }
+        catch (RestClientException e)
+        {
+            log.error("预览文档失败: {}", url, e);
+            throw new ServiceException("预览文档失败: " + e.getMessage());
+        }
+    }
+
+    private byte[] downloadDocumentFromDataset(String documentId)
+    {
+        String url = ragFlowConfig.getUrl() + "/v1/document/get/" + documentId;
+        log.info("下载文档: url={}", url);
+        try
+        {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(ragFlowConfig.getApiKey());
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, byte[].class);
+
+            byte[] body = response.getBody();
+            MediaType contentType = response.getHeaders().getContentType();
+            log.info("RAGFlow 响应: HTTP {}, Content-Type={}, bodyLength={}",
+                    response.getStatusCode().value(), contentType,
+                    body != null ? body.length : 0);
+
+            if (body != null && body.length > 0)
+            {
+                if (contentType != null && contentType.includes(MediaType.APPLICATION_JSON))
+                {
+                    log.info("检测到 JSON 响应，尝试解析 RAGFlow 错误...");
+                    Map<String, Object> errorBody = parseRagFlowError(body);
+                    if (errorBody != null)
+                    {
+                        Object code = errorBody.get("code");
+                        Object message = errorBody.get("message");
+                        log.warn("RAGFlow 下载文档返回 JSON 错误: code={}, message={}", code, message);
+                        throw new ServiceException("下载文档失败: " + (message != null ? message.toString() : "RAGFlow 返回错误"));
+                    }
+                    log.info("parseRagFlowError 返回 null，JSON 响应但未检测到错误");
+                }
+            }
+            return body;
+        }
+        catch (ServiceException e)
+        {
+            throw e;
         }
         catch (RestClientException e)
         {
@@ -224,6 +275,13 @@ public class ChatServiceImpl implements IChatService
             return null;
         }
         int first = 0;
+        if (content.length >= 3
+                && (content[0] & 0xFF) == 0xEF
+                && (content[1] & 0xFF) == 0xBB
+                && (content[2] & 0xFF) == 0xBF)
+        {
+            first = 3;
+        }
         while (first < content.length && Character.isWhitespace((char) content[first]))
         {
             first++;
@@ -235,16 +293,21 @@ public class ChatServiceImpl implements IChatService
         try
         {
             @SuppressWarnings("unchecked")
-            Map<String, Object> body = objectMapper.readValue(content, Map.class);
+            Map<String, Object> body = objectMapper.readValue(content, first, content.length - first, Map.class);
             Object code = body.get("code");
             if (code instanceof Number && ((Number) code).intValue() != 0)
             {
                 return body;
             }
+            if (code instanceof String && !"0".equals(code))
+            {
+                return body;
+            }
             return null;
         }
-        catch (Exception ignored)
+        catch (Exception e)
         {
+            log.warn("解析 RAGFlow 错误响应失败，按正常文件处理: {}", e.getMessage());
             return null;
         }
     }
@@ -290,6 +353,14 @@ public class ChatServiceImpl implements IChatService
             }
         }
         return null;
+    }
+
+    private boolean hasDatasetId(String datasetId)
+    {
+        return datasetId != null
+                && !datasetId.isBlank()
+                && !"unknown".equalsIgnoreCase(datasetId)
+                && !"-".equals(datasetId);
     }
 
     private String encode(String value)
