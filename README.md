@@ -74,15 +74,32 @@ mysql -u root -p ry-vue < sql/mag_agent_service.sql
 
 生产环境请在数据库中维护 `agentCode`、真实 `agent_id`、`release`、输入字段映射等配置。不要在 Java 源码中写入 RAGFlow 地址、API Key 或 Agent ID。
 
-## Docker 部署
+## Docker 部署后端
 
 ```bash
 # 首次部署时复制示例配置并填写真实值
 cp deploy/.env.example deploy/.env
 
-# 在 deploy 目录执行
+# 在 deploy 目录执行，仅构建并启动后端、MySQL、Redis
 cd deploy
 docker compose up -d --build
+```
+
+后端容器端口映射为 `8089:8081`。Compose 会创建固定名称的 Docker 网络 `carecubeai-net`，前端独立部署时会加入该网络，并通过服务名 `backend:8081` 代理 API。
+
+常用命令：
+
+```bash
+cd deploy
+
+# 只重建后端服务
+docker compose up -d --build backend
+
+# 查看后端日志
+docker compose logs -f backend
+
+# 停止后端相关服务
+docker compose down
 ```
 
 ## 配置说明
