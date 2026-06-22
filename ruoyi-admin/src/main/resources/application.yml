@@ -97,7 +97,7 @@ token:
   # 令牌自定义标识
   header: Authorization
   # 令牌密钥
-  secret: abcdefghijklmnopqrstuvwxyz
+  secret: ${TOKEN_SECRET:CHANGE_ME_IN_DEPLOYMENT}
   # 令牌有效期（默认30分钟）
   expireTime: 30
 
@@ -149,6 +149,6 @@ xss:
 # RAGFlow 知识库配置
 ragflow:
   # RAGFlow 服务地址
-  url: http://10.10.18.9:60000
+  url: ${RAGFLOW_URL:}
   # RAGFlow API Key
-  api-key: ragflow-zNLVSXYAlD2Tj972agKdV-88LXamVIVYN8T-lKyS3Wo
+  api-key: ${RAGFLOW_API_KEY:}

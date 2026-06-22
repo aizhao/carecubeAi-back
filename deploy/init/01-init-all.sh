@@ -2,12 +2,14 @@
 # MySQL Docker 初始化脚本 — 按顺序导入所有 SQL，并创建业务用户
 
 MYSQL="mysql -uroot -p${MYSQL_ROOT_PASSWORD}"
+MYSQL_APP_USER="${MYSQL_APP_USER:-carecubeai}"
+MYSQL_APP_PASSWORD="${MYSQL_APP_PASSWORD:?MYSQL_APP_PASSWORD is required}"
 
 # 确保数据库使用 utf8mb4
 $MYSQL <<SQL
 ALTER DATABASE \`ry-vue\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS 'carecubeai'@'%' IDENTIFIED BY 'carecubeai123';
-GRANT ALL PRIVILEGES ON \`ry-vue\`.* TO 'carecubeai'@'%';
+CREATE USER IF NOT EXISTS '${MYSQL_APP_USER}'@'%' IDENTIFIED BY '${MYSQL_APP_PASSWORD}';
+GRANT ALL PRIVILEGES ON \`ry-vue\`.* TO '${MYSQL_APP_USER}'@'%';
 FLUSH PRIVILEGES;
 SQL
 
@@ -19,5 +21,8 @@ $MYSQL --default-character-set=utf8mb4 ry-vue < /sql/quartz.sql
 
 echo ">>> 初始化知识库 & AI助手菜单..."
 $MYSQL --default-character-set=utf8mb4 ry-vue < /sql/ragflow_knowledge_base_menu.sql
+
+echo ">>> 初始化智能分析服务..."
+$MYSQL --default-character-set=utf8mb4 ry-vue < /sql/mag_agent_service.sql
 
 echo ">>> 数据库初始化完成"

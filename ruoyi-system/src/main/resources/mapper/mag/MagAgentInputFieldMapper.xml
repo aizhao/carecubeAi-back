@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.MagAgentInputFieldMapper">
+
+    <resultMap id="MagAgentInputFieldResult" type="com.ruoyi.system.domain.mag.MagAgentInputField">
+        <id property="id" column="id"/>
+        <result property="agentCode" column="agent_code"/>
+        <result property="fieldKey" column="field_key"/>
+        <result property="fieldLabel" column="field_label"/>
+        <result property="fieldType" column="field_type"/>
+        <result property="required" column="required"/>
+        <result property="optionsJson" column="options_json"/>
+        <result property="defaultValue" column="default_value"/>
+        <result property="ragflowInputKey" column="ragflow_input_key"/>
+        <result property="sort" column="sort"/>
+        <result property="enabled" column="enabled"/>
+    </resultMap>
+
+    <select id="selectEnabledByAgentCode" parameterType="String" resultMap="MagAgentInputFieldResult">
+        select id, agent_code, field_key, field_label, field_type, required,
+               options_json, default_value, ragflow_input_key, sort, enabled
+        from mag_agent_input_field
+        where agent_code = #{agentCode}
+          and enabled = '1'
+        order by sort asc, id asc
+    </select>
+
+</mapper>

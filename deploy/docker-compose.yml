@@ -18,8 +18,10 @@ services:
     container_name: carecubeai-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ry-vue
+      MYSQL_APP_USER: ${MYSQL_APP_USER:-carecubeai}
+      MYSQL_APP_PASSWORD: ${MYSQL_APP_PASSWORD:?set MYSQL_APP_PASSWORD}
     ports:
       - "33061:3306"
     volumes:
@@ -27,7 +29,7 @@ services:
       - ../sql:/sql:ro
       - ./init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root123}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -69,6 +71,12 @@ services:
       - /work/carecubeai/data/upload:/work/carecubeai/uploadPath
     environment:
       TZ: Asia/Shanghai
+      MYSQL_APP_USER: ${MYSQL_APP_USER:-carecubeai}
+      MYSQL_APP_PASSWORD: ${MYSQL_APP_PASSWORD:?set MYSQL_APP_PASSWORD}
+      RAGFLOW_URL: ${RAGFLOW_URL:?set RAGFLOW_URL}
+      RAGFLOW_API_KEY: ${RAGFLOW_API_KEY:?set RAGFLOW_API_KEY}
+      TOKEN_SECRET: ${TOKEN_SECRET:?set TOKEN_SECRET}
+      DRUID_STAT_PASSWORD: ${DRUID_STAT_PASSWORD:?set DRUID_STAT_PASSWORD}
     networks:
       - app-net
 

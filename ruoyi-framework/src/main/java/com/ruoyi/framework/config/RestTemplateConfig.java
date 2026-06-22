@@ -28,7 +28,7 @@ public class RestTemplateConfig
     {
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectTimeout(Timeout.ofSeconds(30))
-                .setResponseTimeout(Timeout.ofSeconds(60))
+                .setResponseTimeout(Timeout.ofSeconds(300))
                 .build();
         HttpClientConnectionManager connManager = PoolingHttpClientConnectionManagerBuilder.create()
                 .build();

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.MagAgentMessageMapper">
+
+    <resultMap id="MagAgentMessageResult" type="com.ruoyi.system.domain.mag.MagAgentMessage">
+        <result property="messageId" column="message_id"/>
+        <result property="sessionId" column="session_id"/>
+        <result property="agentCode" column="agent_code"/>
+        <result property="userId" column="user_id"/>
+        <result property="role" column="role"/>
+        <result property="content" column="content"/>
+        <result property="eventType" column="event_type"/>
+        <result property="structuredJson" column="structured_json"/>
+        <result property="referenceJson" column="reference_json"/>
+        <result property="attachmentJson" column="attachment_json"/>
+        <result property="ragflowMessageId" column="ragflow_message_id"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <insert id="insertMessage" parameterType="com.ruoyi.system.domain.mag.MagAgentMessage">
+        insert into mag_agent_message
+        (message_id, session_id, agent_code, user_id, role, content, event_type, structured_json,
+         reference_json, attachment_json, ragflow_message_id, create_time)
+        values
+        (#{messageId}, #{sessionId}, #{agentCode}, #{userId}, #{role}, #{content}, #{eventType}, #{structuredJson},
+         #{referenceJson}, #{attachmentJson}, #{ragflowMessageId}, #{createTime})
+    </insert>
+
+    <select id="selectBySessionId" resultMap="MagAgentMessageResult">
+        select message_id, session_id, agent_code, user_id, role, content, event_type, structured_json,
+               reference_json, attachment_json, ragflow_message_id, create_time
+        from mag_agent_message
+        where session_id = #{sessionId}
+          and user_id = #{userId}
+        order by create_time asc, message_id asc
+    </select>
+
+    <delete id="deleteBySessionIdAndUser">
+        delete from mag_agent_message
+        where session_id = #{sessionId}
+          and user_id = #{userId}
+    </delete>
+
+</mapper>

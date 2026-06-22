@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.MagAgentPatientSnapshotMapper">
+
+    <insert id="insertSnapshot" parameterType="com.ruoyi.system.domain.mag.MagAgentPatientSnapshot">
+        insert into mag_agent_patient_snapshot
+        (snapshot_id, session_id, agent_code, user_id, input_json, input_summary, create_time)
+        values
+        (#{snapshotId}, #{sessionId}, #{agentCode}, #{userId}, #{inputJson}, #{inputSummary}, #{createTime})
+    </insert>
+
+</mapper>

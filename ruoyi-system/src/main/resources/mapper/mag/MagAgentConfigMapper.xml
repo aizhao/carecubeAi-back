@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.MagAgentConfigMapper">
+
+    <resultMap id="MagAgentConfigResult" type="com.ruoyi.system.domain.mag.MagAgentConfig">
+        <id property="id" column="id"/>
+        <result property="agentCode" column="agent_code"/>
+        <result property="agentName" column="agent_name"/>
+        <result property="agentId" column="agent_id"/>
+        <result property="releaseValue" column="release_value"/>
+        <result property="enabled" column="enabled"/>
+        <result property="description" column="description"/>
+        <result property="sort" column="sort"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="selectMagAgentConfigVo">
+        select id, agent_code, agent_name, agent_id, release_value, enabled, description, sort,
+               create_by, create_time, update_by, update_time, remark
+        from mag_agent_config
+    </sql>
+
+    <select id="selectEnabledList" resultMap="MagAgentConfigResult">
+        <include refid="selectMagAgentConfigVo"/>
+        where enabled = '1'
+        order by sort asc, id asc
+    </select>
+
+    <select id="selectByAgentCode" parameterType="String" resultMap="MagAgentConfigResult">
+        <include refid="selectMagAgentConfigVo"/>
+        where agent_code = #{agentCode}
+          and enabled = '1'
+        limit 1
+    </select>
+
+</mapper>
